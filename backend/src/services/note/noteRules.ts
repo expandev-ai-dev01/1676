@@ -32,21 +32,12 @@ import {
  * @param {number} params.idUser - User identifier
  * @param {string} params.titulo - Note title
  * @param {string} params.conteudo - Note content
- * @param {string} [params.cor] - Note color (optional, default: 'branco')
+ * @param {number} [params.idColor] - Note color ID (optional, default: 1)
  *
  * @returns {Promise<NoteCreateResult>} Created note identifier
  *
  * @throws {ValidationError} When parameters fail validation
  * @throws {DatabaseError} When database operation fails
- *
- * @example
- * const result = await noteCreate({
- *   idAccount: 1,
- *   idUser: 1,
- *   titulo: 'My First Note',
- *   conteudo: 'This is the content of my note',
- *   cor: 'azul'
- * });
  */
 export async function noteCreate(params: NoteCreateRequest): Promise<NoteCreateResult> {
   const result = await dbRequest(
@@ -56,7 +47,7 @@ export async function noteCreate(params: NoteCreateRequest): Promise<NoteCreateR
       idUser: params.idUser,
       titulo: params.titulo,
       conteudo: params.conteudo,
-      cor: params.cor || 'branco',
+      idColor: params.idColor || 1, // Default to 1 ('Neutro')
     },
     ExpectedReturn.Single
   );
@@ -73,7 +64,7 @@ export async function noteCreate(params: NoteCreateRequest): Promise<NoteCreateR
  *
  * @param {NoteListRequest} params - Note listing parameters
  * @param {number} params.idAccount - Account identifier
- * @param {string} [params.filterCor] - Color filter (default: 'todas')
+ * @param {string} [params.filterColorIds] - Comma-separated color IDs (default: 'todas')
  * @param {string} [params.orderBy] - Sort field (default: 'dateModified')
  * @param {string} [params.direction] - Sort direction (default: 'desc')
  *
@@ -81,28 +72,20 @@ export async function noteCreate(params: NoteCreateRequest): Promise<NoteCreateR
  *
  * @throws {ValidationError} When parameters fail validation
  * @throws {DatabaseError} When database operation fails
- *
- * @example
- * const notes = await noteList({
- *   idAccount: 1,
- *   filterCor: 'azul',
- *   orderBy: 'titulo',
- *   direction: 'asc'
- * });
  */
 export async function noteList(params: NoteListRequest): Promise<NoteEntity[]> {
   const result = await dbRequest(
     '[functional].[spNoteList]',
     {
       idAccount: params.idAccount,
-      filterCor: params.filterCor || 'todas',
+      filterColorIds: params.filterColorIds || 'todas',
       orderBy: params.orderBy || 'dateModified',
       direction: params.direction || 'desc',
     },
     ExpectedReturn.Multi
   );
 
-  return result;
+  return result[0] || [];
 }
 
 /**
@@ -120,12 +103,6 @@ export async function noteList(params: NoteListRequest): Promise<NoteEntity[]> {
  *
  * @throws {ValidationError} When parameters fail validation
  * @throws {DatabaseError} When database operation fails or note not found
- *
- * @example
- * const note = await noteGet({
- *   idAccount: 1,
- *   idNote: 123
- * });
  */
 export async function noteGet(params: NoteGetRequest): Promise<NoteEntity> {
   const result = await dbRequest(
@@ -153,22 +130,12 @@ export async function noteGet(params: NoteGetRequest): Promise<NoteEntity> {
  * @param {number} params.idNote - Note identifier
  * @param {string} params.titulo - Updated note title
  * @param {string} params.conteudo - Updated note content
- * @param {string} params.cor - Updated note color
+ * @param {number} params.idColor - Updated note color ID
  *
  * @returns {Promise<NoteUpdateResult>} Updated note identifier
  *
  * @throws {ValidationError} When parameters fail validation
  * @throws {DatabaseError} When database operation fails or note not found
- *
- * @example
- * const result = await noteUpdate({
- *   idAccount: 1,
- *   idUser: 1,
- *   idNote: 123,
- *   titulo: 'Updated Title',
- *   conteudo: 'Updated content',
- *   cor: 'verde'
- * });
  */
 export async function noteUpdate(params: NoteUpdateRequest): Promise<NoteUpdateResult> {
   const result = await dbRequest(
@@ -179,7 +146,7 @@ export async function noteUpdate(params: NoteUpdateRequest): Promise<NoteUpdateR
       idNote: params.idNote,
       titulo: params.titulo,
       conteudo: params.conteudo,
-      cor: params.cor,
+      idColor: params.idColor,
     },
     ExpectedReturn.Single
   );
@@ -203,13 +170,6 @@ export async function noteUpdate(params: NoteUpdateRequest): Promise<NoteUpdateR
  *
  * @throws {ValidationError} When parameters fail validation
  * @throws {DatabaseError} When database operation fails or note not found
- *
- * @example
- * const result = await noteDelete({
- *   idAccount: 1,
- *   idUser: 1,
- *   idNote: 123
- * });
  */
 export async function noteDelete(params: NoteDeleteRequest): Promise<NoteDeleteResult> {
   const result = await dbRequest(

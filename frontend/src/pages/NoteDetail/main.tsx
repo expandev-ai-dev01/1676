@@ -7,7 +7,7 @@ import type { NoteDetailPageProps } from './types';
 
 /**
  * @page NoteDetailPage
- * @summary Note detail page displaying full note information
+ * @summary Note detail page displaying full note information with color
  * @domain note
  * @type detail-page
  * @category note-management
@@ -67,7 +67,10 @@ export const NoteDetailPage = (props: NoteDetailPageProps) => {
           </button>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div
+          className="bg-white rounded-lg shadow-sm p-6 border-l-4"
+          style={{ borderLeftColor: note.colorHex }}
+        >
           <div className="flex justify-between items-start mb-6">
             <h1 className="text-3xl font-bold text-gray-900">{note.titulo}</h1>
             <div className="flex gap-3">
@@ -89,24 +92,10 @@ export const NoteDetailPage = (props: NoteDetailPageProps) => {
 
           <div className="mb-4">
             <span
-              className="inline-block px-3 py-1 rounded-full text-sm font-medium"
-              style={{
-                backgroundColor:
-                  note.cor === 'amarelo'
-                    ? '#fef3c7'
-                    : note.cor === 'azul'
-                    ? '#dbeafe'
-                    : note.cor === 'verde'
-                    ? '#d1fae5'
-                    : note.cor === 'vermelho'
-                    ? '#fee2e2'
-                    : note.cor === 'roxo'
-                    ? '#e9d5ff'
-                    : '#f3f4f6',
-                color: '#1f2937',
-              }}
+              className="inline-block px-3 py-1 rounded-full text-sm font-medium text-white"
+              style={{ backgroundColor: note.colorHex }}
             >
-              {note.cor}
+              {note.colorName}
             </span>
           </div>
 

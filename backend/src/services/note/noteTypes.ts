@@ -1,12 +1,14 @@
 /**
  * @interface NoteEntity
- * @description Represents a note entity in the system
+ * @description Represents a note entity in the system with its color details
  *
  * @property {number} idNote - Unique note identifier
  * @property {number} idAccount - Associated account identifier
  * @property {string} titulo - Note title
  * @property {string} conteudo - Note content
- * @property {string} cor - Note color for visual organization
+ * @property {number} idColor - Identifier of the assigned color
+ * @property {string} colorName - Name of the assigned color
+ * @property {string} colorHex - Hex code of the assigned color
  * @property {Date} dateCreated - Creation timestamp
  * @property {Date} dateModified - Last modification timestamp
  */
@@ -15,7 +17,9 @@ export interface NoteEntity {
   idAccount: number;
   titulo: string;
   conteudo: string;
-  cor: string;
+  idColor: number;
+  colorName: string;
+  colorHex: string;
   dateCreated: Date;
   dateModified: Date;
 }
@@ -28,14 +32,14 @@ export interface NoteEntity {
  * @property {number} idUser - User identifier
  * @property {string} titulo - Note title (3-100 characters)
  * @property {string} conteudo - Note content (1-5000 characters)
- * @property {string} [cor] - Optional note color (default: 'branco')
+ * @property {number} [idColor] - Optional note color ID (default: 1)
  */
 export interface NoteCreateRequest {
   idAccount: number;
   idUser: number;
   titulo: string;
   conteudo: string;
-  cor?: string;
+  idColor?: number;
 }
 
 /**
@@ -47,7 +51,7 @@ export interface NoteCreateRequest {
  * @property {number} idNote - Note identifier
  * @property {string} titulo - Updated note title (3-100 characters)
  * @property {string} conteudo - Updated note content (1-5000 characters)
- * @property {string} cor - Updated note color
+ * @property {number} idColor - Updated note color ID
  */
 export interface NoteUpdateRequest {
   idAccount: number;
@@ -55,7 +59,7 @@ export interface NoteUpdateRequest {
   idNote: number;
   titulo: string;
   conteudo: string;
-  cor: string;
+  idColor: number;
 }
 
 /**
@@ -63,13 +67,13 @@ export interface NoteUpdateRequest {
  * @description Request parameters for listing notes
  *
  * @property {number} idAccount - Account identifier
- * @property {string} [filterCor] - Optional color filter (default: 'todas')
+ * @property {string} [filterColorIds] - Optional comma-separated list of color IDs
  * @property {string} [orderBy] - Sort field (default: 'dateModified')
  * @property {string} [direction] - Sort direction (default: 'desc')
  */
 export interface NoteListRequest {
   idAccount: number;
-  filterCor?: string;
+  filterColorIds?: string;
   orderBy?: string;
   direction?: string;
 }

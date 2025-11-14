@@ -8,13 +8,15 @@ export interface Note {
   idNote: number;
   titulo: string;
   conteudo: string;
-  cor: string;
+  idColor: number;
+  colorName: string;
+  colorHex: string;
   dateCreated: string;
   dateModified: string;
 }
 
 export interface NoteListParams {
-  filterCor?: string;
+  filterColorIds?: string;
   orderBy?: 'dateCreated' | 'dateModified' | 'titulo';
   direction?: 'asc' | 'desc';
 }
@@ -22,11 +24,11 @@ export interface NoteListParams {
 export interface CreateNoteDto {
   titulo: string;
   conteudo: string;
-  cor: string;
+  idColor: number;
 }
 
 export interface UpdateNoteDto {
   titulo: string;
   conteudo: string;
-  cor: string;
+  idColor: number;
 }

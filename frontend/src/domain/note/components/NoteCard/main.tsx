@@ -28,7 +28,14 @@ export const NoteCard = ({ note, onEdit, onDelete, onClick }: NoteCardProps) => 
     note.conteudo.length > 100 ? note.conteudo.substring(0, 100) + '...' : note.conteudo;
 
   return (
-    <div className={getNoteCardClassName({ cor: note.cor })} onClick={handleClick}>
+    <div
+      className={getNoteCardClassName()}
+      onClick={handleClick}
+      style={{
+        borderColor: note.colorHex,
+        backgroundColor: `${note.colorHex}15`,
+      }}
+    >
       <div className="flex justify-between items-start mb-2">
         <h3 className="text-lg font-semibold text-gray-900 flex-1">{note.titulo}</h3>
         <div className="flex gap-2">
@@ -45,6 +52,17 @@ export const NoteCard = ({ note, onEdit, onDelete, onClick }: NoteCardProps) => 
             Delete
           </button>
         </div>
+      </div>
+      <div className="mb-3">
+        <span
+          className="inline-block px-2 py-1 rounded text-xs font-medium"
+          style={{
+            backgroundColor: note.colorHex,
+            color: '#ffffff',
+          }}
+        >
+          {note.colorName}
+        </span>
       </div>
       <p className="text-gray-700 mb-3 whitespace-pre-wrap">{previewContent}</p>
       <div className="text-xs text-gray-500">

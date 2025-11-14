@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { ColorPicker } from '@/domain/color/components/ColorPicker';
 import type { NoteFormProps } from './types';
 
 const noteSchema = z.object({
@@ -12,7 +13,7 @@ const noteSchema = z.object({
     .string()
     .min(1, 'Conteúdo é obrigatório')
     .max(5000, 'Conteúdo deve ter no máximo 5000 caracteres'),
-  cor: z.string().max(50),
+  idColor: z.number().int().positive(),
 });
 
 type NoteFormData = z.infer<typeof noteSchema>;
@@ -28,18 +29,26 @@ export const NoteForm = ({ initialData, onSubmit, onCancel, isSubmitting }: Note
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<NoteFormData>({
     resolver: zodResolver(noteSchema),
     defaultValues: initialData || {
       titulo: '',
       conteudo: '',
-      cor: 'branco',
+      idColor: 1,
     },
   });
 
+  const selectedColorId = watch('idColor');
+
   const handleFormSubmit = async (data: NoteFormData) => {
     await onSubmit(data);
+  };
+
+  const handleColorSelect = (colorId: number) => {
+    setValue('idColor', colorId, { shouldValidate: true });
   };
 
   return (
@@ -73,23 +82,12 @@ export const NoteForm = ({ initialData, onSubmit, onCancel, isSubmitting }: Note
       </div>
 
       <div>
-        <label htmlFor="cor" className="block text-sm font-medium text-gray-700 mb-1">
-          Cor
-        </label>
-        <select
-          id="cor"
-          {...register('cor')}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        <ColorPicker
+          selectedColorId={selectedColorId}
+          onColorSelect={handleColorSelect}
           disabled={isSubmitting}
-        >
-          <option value="branco">Branco</option>
-          <option value="amarelo">Amarelo</option>
-          <option value="azul">Azul</option>
-          <option value="verde">Verde</option>
-          <option value="vermelho">Vermelho</option>
-          <option value="roxo">Roxo</option>
-        </select>
-        {errors.cor && <p className="text-red-600 text-sm mt-1">{errors.cor.message}</p>}
+        />
+        {errors.idColor && <p className="text-red-600 text-sm mt-1">{errors.idColor.message}</p>}
       </div>
 
       <div className="flex gap-3 justify-end">

@@ -71,7 +71,7 @@ export const NoteEditPage = (props: NoteEditPageProps) => {
             initialData={{
               titulo: note.titulo,
               conteudo: note.conteudo,
-              cor: note.cor,
+              idColor: note.idColor,
             }}
             onSubmit={handleSubmit}
             onCancel={handleCancel}

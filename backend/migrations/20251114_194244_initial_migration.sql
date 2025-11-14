@@ -1,7 +1,7 @@
 /**
  * Database Migration
- * Generated: 2025-11-14T19:20:23.023Z
- * Timestamp: 20251114_192023
+ * Generated: 2025-11-14T19:42:44.175Z
+ * Timestamp: 20251114_194244
  *
  * This migration includes:
  * - Schema structures (tables, indexes, constraints)
@@ -22,7 +22,7 @@ SET NUMERIC_ROUNDABORT OFF;
 GO
 
 PRINT 'Starting database migration...';
-PRINT 'Timestamp: 20251114_192023';
+PRINT 'Timestamp: 20251114_194244';
 GO
 
 
@@ -70,6 +70,54 @@ ON [subscription].[account]([active])
 WHERE [active] = 1;
 GO
 
+-- File: config/_structure.sql
+/**
+ * @schema config
+ * System-wide configuration schema
+ */
+CREATE SCHEMA [config];
+GO
+
+/**
+ * @table color Predefined color palette for notes
+ * @multitenancy false
+ * @softDelete false
+ * @alias clr
+ */
+CREATE TABLE [config].[color] (
+  [idColor] INTEGER IDENTITY(1, 1) NOT NULL,
+  [name] NVARCHAR(50) NOT NULL,
+  [hexCode] VARCHAR(7) NOT NULL
+);
+GO
+
+/**
+ * @primaryKey pkColor
+ * @keyType Object
+ */
+ALTER TABLE [config].[color]
+ADD CONSTRAINT [pkColor] PRIMARY KEY CLUSTERED ([idColor]);
+GO
+
+/**
+ * @index uqColor_Name Ensures color names are unique
+ * @type Unique
+ * @unique true
+ */
+CREATE UNIQUE NONCLUSTERED INDEX [uqColor_Name]
+ON [config].[color]([name]);
+GO
+
+/**
+ * @index uqColor_HexCode Ensures hex codes are unique
+ * @type Unique
+ * @unique true
+ */
+CREATE UNIQUE NONCLUSTERED INDEX [uqColor_HexCode]
+ON [config].[color]([hexCode]);
+GO
+
+
 -- File: functional/_structure.sql
 /**
  * @schema functional
@@ -87,9 +135,9 @@ GO
 CREATE TABLE [functional].[note] (
   [idNote] INTEGER IDENTITY(1, 1) NOT NULL,
   [idAccount] INTEGER NOT NULL,
+  [idColor] INTEGER NOT NULL,
   [titulo] NVARCHAR(100) NOT NULL,
   [conteudo] NVARCHAR(MAX) NOT NULL,
-  [cor] VARCHAR(50) NOT NULL,
   [dateCreated] DATETIME2 NOT NULL,
   [dateModified] DATETIME2 NOT NULL
 );
@@ -111,6 +159,22 @@ GO
 ALTER TABLE [functional].[note]
 ADD CONSTRAINT [fkNote_Account] FOREIGN KEY ([idAccount])
 REFERENCES [subscription].[account]([idAccount]);
+GO
+
+/**
+ * @foreignKey fkNote_Color Links note to a color in the palette
+ * @target config.color
+ */
+ALTER TABLE [functional].[note]
+ADD CONSTRAINT [fkNote_Color] FOREIGN KEY ([idColor])
+REFERENCES [config].[color]([idColor]);
+GO
+
+/**
+ * @default dfNote_IdColor Sets default color for new notes
+ */
+ALTER TABLE [functional].[note]
+ADD CONSTRAINT [dfNote_IdColor] DEFAULT (1) FOR [idColor];
 GO
 
 /**
@@ -141,17 +205,18 @@ GO
  */
 CREATE NONCLUSTERED INDEX [ixNote_Account_DateModified]
 ON [functional].[note]([idAccount], [dateModified] DESC)
-INCLUDE ([titulo], [cor]);
+INCLUDE ([titulo], [idColor]);
 GO
 
 /**
- * @index ixNote_Account_Cor Performance index for filtering notes by color
+ * @index ixNote_Account_IdColor Performance index for filtering notes by color
  * @type Search
  */
-CREATE NONCLUSTERED INDEX [ixNote_Account_Cor]
-ON [functional].[note]([idAccount], [cor])
+CREATE NONCLUSTERED INDEX [ixNote_Account_IdColor]
+ON [functional].[note]([idAccount], [idColor])
 INCLUDE ([titulo], [dateModified]);
 GO
+
 
 
 -- ============================================
@@ -169,16 +234,151 @@ VALUES
 ('Default Account', GETUTCDATE(), 1);
 GO
 
+-- File: config/_data.sql
+/**
+ * @load color
+ */
+INSERT INTO [config].[color]
+([name], [hexCode])
+VALUES
+('Neutro', '#FFFFFF'),
+('Vermelho', '#FFDDE1'),
+('Amarelo', '#FFFACD'),
+('Verde', '#D4EDDA'),
+('Azul', '#D1ECF1'),
+('Roxo', '#E2D9F3');
+GO
+
+
 
 -- ============================================
 -- STORED PROCEDURES
 -- Database stored procedures and functions
 -- ============================================
 
+-- File: config/color/spColorList.sql
+/**
+ * @summary
+ * Lists all available colors from the predefined palette.
+ *
+ * @procedure spColorList
+ * @schema config
+ * @type stored-procedure
+ *
+ * @endpoints
+ * - GET /api/v1/internal/color
+ *
+ * @testScenarios
+ * - Retrieve the complete list of colors
+ */
+CREATE OR ALTER PROCEDURE [config].[spColorList]
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  /**
+   * @rule {db-color-listing} Retrieve all colors from the palette
+   */
+  /**
+   * @output {ColorPalette, n, n}
+   * @column {INT} idColor
+   * - Description: Color identifier
+   * @column {NVARCHAR(50)} name
+   * - Description: Color name
+   * @column {VARCHAR(7)} hexCode
+   * - Description: Color hex code
+   */
+  SELECT
+    [clr].[idColor],
+    [clr].[name],
+    [clr].[hexCode]
+  FROM [config].[color] [clr]
+  ORDER BY [clr].[idColor];
+END;
+GO
+
+
+-- File: functional/note/spNoteColorStats.sql
+/**
+ * @summary
+ * Calculates and returns the count of notes for each color for a specific account.
+ *
+ * @procedure spNoteColorStats
+ * @schema functional
+ * @type stored-procedure
+ *
+ * @endpoints
+ * - GET /api/v1/internal/note/stats/by-color
+ *
+ * @parameters
+ * @param {INT} idAccount
+ *   - Required: Yes
+ *   - Description: Account identifier for multi-tenancy isolation
+ *
+ * @testScenarios
+ * - Get stats for an account with notes
+ * - Get stats for an account with no notes
+ * - Security validation with invalid account
+ */
+CREATE OR ALTER PROCEDURE [functional].[spNoteColorStats]
+  @idAccount INTEGER
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  /**
+   * @validation Required parameter validation
+   * @throw {idAccountRequired}
+   */
+  IF @idAccount IS NULL
+  BEGIN
+    ;THROW 51000, 'idAccountRequired', 1;
+  END;
+
+  /**
+   * @validation Account existence validation
+   * @throw {accountDoesntExist}
+   */
+  IF NOT EXISTS (SELECT * FROM [subscription].[account] acc WHERE acc.[idAccount] = @idAccount)
+  BEGIN
+    ;THROW 51000, 'accountDoesntExist', 1;
+  END;
+
+  /**
+   * @rule {db-note-color-stats} Calculate note count for each color
+   */
+  /**
+   * @output {ColorStats, n, n}
+   * @column {INT} idColor
+   * - Description: Color identifier
+   * @column {NVARCHAR(50)} name
+   * - Description: Color name
+   * @column {VARCHAR(7)} hexCode
+   * - Description: Color hex code
+   * @column {INT} noteCount
+   * - Description: Number of notes with this color
+   */
+  SELECT
+    [clr].[idColor],
+    [clr].[name],
+    [clr].[hexCode],
+    COUNT([nte].[idNote]) AS [noteCount]
+  FROM [config].[color] [clr]
+    LEFT JOIN [functional].[note] [nte] ON ([nte].[idColor] = [clr].[idColor] AND [nte].[idAccount] = @idAccount)
+  GROUP BY
+    [clr].[idColor],
+    [clr].[name],
+    [clr].[hexCode]
+  ORDER BY
+    [clr].[idColor];
+END;
+GO
+
+
 -- File: functional/note/spNoteCreate.sql
 /**
  * @summary
- * Creates a new note with titulo, conteudo, and optional cor.
+ * Creates a new note with titulo, conteudo, and optional idColor.
  * Automatically generates dateCreated and dateModified timestamps.
  *
  * @procedure spNoteCreate
@@ -205,15 +405,15 @@ GO
  *   - Required: Yes
  *   - Description: Note content (1-5000 characters)
  *
- * @param {VARCHAR(50)} cor
+ * @param {INT} idColor
  *   - Required: No
- *   - Description: Note color for visual organization (default: 'branco')
+ *   - Description: Note color identifier (default: 1 for 'Neutro')
  *
  * @returns {INT} idNote - Identifier of the created note
  *
  * @testScenarios
  * - Valid creation with all required parameters
- * - Valid creation with optional cor parameter
+ * - Valid creation with optional idColor parameter
  * - Validation failure for titulo length constraints
  * - Validation failure for conteudo length constraints
  * - Security validation with invalid account
@@ -223,7 +423,7 @@ CREATE OR ALTER PROCEDURE [functional].[spNoteCreate]
   @idUser INTEGER,
   @titulo NVARCHAR(100),
   @conteudo NVARCHAR(MAX),
-  @cor VARCHAR(50) = 'branco'
+  @idColor INTEGER = 1
 AS
 BEGIN
   SET NOCOUNT ON;
@@ -300,6 +500,15 @@ BEGIN
     ;THROW 51000, 'accountDoesntExist', 1;
   END;
 
+  /**
+   * @validation Color existence validation
+   * @throw {colorDoesntExist}
+   */
+  IF NOT EXISTS (SELECT * FROM [config].[color] clr WHERE clr.[idColor] = @idColor)
+  BEGIN
+    ;THROW 51000, 'colorDoesntExist', 1;
+  END;
+
   DECLARE @idNote INTEGER;
   DECLARE @currentDateTime DATETIME2 = GETUTCDATE();
 
@@ -310,9 +519,9 @@ BEGIN
     BEGIN TRAN;
 
       INSERT INTO [functional].[note]
-      ([idAccount], [titulo], [conteudo], [cor], [dateCreated], [dateModified])
+      ([idAccount], [idColor], [titulo], [conteudo], [dateCreated], [dateModified])
       VALUES
-      (@idAccount, @titulo, @conteudo, @cor, @currentDateTime, @currentDateTime);
+      (@idAccount, @idColor, @titulo, @conteudo, @currentDateTime, @currentDateTime);
 
       SET @idNote = SCOPE_IDENTITY();
 
@@ -331,6 +540,7 @@ BEGIN
   END CATCH;
 END;
 GO
+
 
 -- File: functional/note/spNoteDelete.sql
 /**
@@ -436,7 +646,8 @@ GO
 -- File: functional/note/spNoteGet.sql
 /**
  * @summary
- * Retrieves a specific note by its identifier with account validation.
+ * Retrieves a specific note by its identifier with account validation,
+ * including details of its assigned color.
  *
  * @procedure spNoteGet
  * @schema functional
@@ -494,7 +705,7 @@ BEGIN
   END;
 
   /**
-   * @rule {db-note-retrieval} Retrieve specific note details
+   * @rule {db-note-retrieval} Retrieve specific note details with color information
    */
   /**
    * @output {NoteDetails, 1, n}
@@ -504,8 +715,12 @@ BEGIN
    * - Description: Note title
    * @column {NVARCHAR(MAX)} conteudo
    * - Description: Note content
-   * @column {VARCHAR(50)} cor
-   * - Description: Note color
+   * @column {INT} idColor
+   * - Description: Color identifier
+   * @column {NVARCHAR(50)} colorName
+   * - Description: Color name
+   * @column {VARCHAR(7)} colorHex
+   * - Description: Color hex code
    * @column {DATETIME2} dateCreated
    * - Description: Note creation timestamp
    * @column {DATETIME2} dateModified
@@ -515,19 +730,23 @@ BEGIN
     [nte].[idNote],
     [nte].[titulo],
     [nte].[conteudo],
-    [nte].[cor],
+    [nte].[idColor],
+    [clr].[name] AS [colorName],
+    [clr].[hexCode] AS [colorHex],
     [nte].[dateCreated],
     [nte].[dateModified]
   FROM [functional].[note] [nte]
+    JOIN [config].[color] [clr] ON ([clr].[idColor] = [nte].[idColor])
   WHERE [nte].[idNote] = @idNote
     AND [nte].[idAccount] = @idAccount;
 END;
 GO
 
+
 -- File: functional/note/spNoteList.sql
 /**
  * @summary
- * Lists all notes for an account with optional filtering by color
+ * Lists all notes for an account with optional filtering by multiple colors
  * and sorting by different criteria (dateCreated, dateModified, titulo).
  *
  * @procedure spNoteList
@@ -542,9 +761,9 @@ GO
  *   - Required: Yes
  *   - Description: Account identifier for multi-tenancy isolation
  *
- * @param {VARCHAR(50)} filterCor
+ * @param {VARCHAR(MAX)} filterColorIds
  *   - Required: No
- *   - Description: Filter notes by color ('todas' for all colors)
+ *   - Description: Filter notes by a comma-separated list of color IDs ('todas' for all colors)
  *
  * @param {VARCHAR(50)} orderBy
  *   - Required: No
@@ -556,14 +775,15 @@ GO
  *
  * @testScenarios
  * - List all notes with default sorting
- * - List notes filtered by specific color
+ * - List notes filtered by a single color ID
+ * - List notes filtered by multiple color IDs
  * - List notes sorted by titulo ascending
  * - List notes sorted by dateCreated descending
  * - Security validation with invalid account
  */
 CREATE OR ALTER PROCEDURE [functional].[spNoteList]
   @idAccount INTEGER,
-  @filterCor VARCHAR(50) = 'todas',
+  @filterColorIds VARCHAR(MAX) = 'todas',
   @orderBy VARCHAR(50) = 'dateModified',
   @direction VARCHAR(4) = 'desc'
 AS
@@ -617,8 +837,12 @@ BEGIN
    * - Description: Note title
    * @column {NVARCHAR(MAX)} conteudo
    * - Description: Note content
-   * @column {VARCHAR(50)} cor
-   * - Description: Note color
+   * @column {INT} idColor
+   * - Description: Color identifier
+   * @column {NVARCHAR(50)} colorName
+   * - Description: Color name
+   * @column {VARCHAR(7)} colorHex
+   * - Description: Color hex code
    * @column {DATETIME2} dateCreated
    * - Description: Note creation timestamp
    * @column {DATETIME2} dateModified
@@ -628,12 +852,15 @@ BEGIN
     [nte].[idNote],
     [nte].[titulo],
     [nte].[conteudo],
-    [nte].[cor],
+    [nte].[idColor],
+    [clr].[name] AS [colorName],
+    [clr].[hexCode] AS [colorHex],
     [nte].[dateCreated],
     [nte].[dateModified]
   FROM [functional].[note] [nte]
+    JOIN [config].[color] [clr] ON ([clr].[idColor] = [nte].[idColor])
   WHERE [nte].[idAccount] = @idAccount
-    AND (@filterCor = 'todas' OR [nte].[cor] = @filterCor)
+    AND (@filterColorIds = 'todas' OR [nte].[idColor] IN (SELECT value FROM STRING_SPLIT(@filterColorIds, ',')))
   ORDER BY
     CASE WHEN @orderBy = 'dateModified' AND @direction = 'desc' THEN [nte].[dateModified] END DESC,
     CASE WHEN @orderBy = 'dateModified' AND @direction = 'asc' THEN [nte].[dateModified] END ASC,
@@ -644,10 +871,11 @@ BEGIN
 END;
 GO
 
+
 -- File: functional/note/spNoteUpdate.sql
 /**
  * @summary
- * Updates an existing note's titulo, conteudo, and cor.
+ * Updates an existing note's titulo, conteudo, and idColor.
  * Automatically updates dateModified timestamp.
  *
  * @procedure spNoteUpdate
@@ -678,9 +906,9 @@ GO
  *   - Required: Yes
  *   - Description: Updated note content (1-5000 characters)
  *
- * @param {VARCHAR(50)} cor
- *   - Required: No
- *   - Description: Updated note color
+ * @param {INT} idColor
+ *   - Required: Yes
+ *   - Description: Updated note color identifier
  *
  * @testScenarios
  * - Valid update with all parameters
@@ -695,7 +923,7 @@ CREATE OR ALTER PROCEDURE [functional].[spNoteUpdate]
   @idNote INTEGER,
   @titulo NVARCHAR(100),
   @conteudo NVARCHAR(MAX),
-  @cor VARCHAR(50)
+  @idColor INTEGER
 AS
 BEGIN
   SET NOCOUNT ON;
@@ -781,6 +1009,15 @@ BEGIN
     ;THROW 51000, 'noteDoesntExist', 1;
   END;
 
+  /**
+   * @validation Color existence validation
+   * @throw {colorDoesntExist}
+   */
+  IF NOT EXISTS (SELECT * FROM [config].[color] clr WHERE clr.[idColor] = @idColor)
+  BEGIN
+    ;THROW 51000, 'colorDoesntExist', 1;
+  END;
+
   DECLARE @currentDateTime DATETIME2 = GETUTCDATE();
 
   BEGIN TRY
@@ -793,7 +1030,7 @@ BEGIN
       SET
         [titulo] = @titulo,
         [conteudo] = @conteudo,
-        [cor] = @cor,
+        [idColor] = @idColor,
         [dateModified] = @currentDateTime
       WHERE [idNote] = @idNote
         AND [idAccount] = @idAccount;
@@ -813,6 +1050,7 @@ BEGIN
   END CATCH;
 END;
 GO
+
 
 
 -- ============================================

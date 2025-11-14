@@ -6,7 +6,7 @@
  *
  * @apiDescription Lists all notes for an account with optional filtering and sorting
  *
- * @apiParam {String} [filterCor] Color filter (default: 'todas')
+ * @apiParam {String} [filterColorIds] Comma-separated list of color IDs to filter by
  * @apiParam {String} [orderBy] Sort field: dateCreated, dateModified, titulo (default: 'dateModified')
  * @apiParam {String} [direction] Sort direction: asc, desc (default: 'desc')
  *
@@ -14,7 +14,9 @@
  * @apiSuccess {Number} data.idNote Note identifier
  * @apiSuccess {String} data.titulo Note title
  * @apiSuccess {String} data.conteudo Note content
- * @apiSuccess {String} data.cor Note color
+ * @apiSuccess {Number} data.idColor Color identifier
+ * @apiSuccess {String} data.colorName Color name
+ * @apiSuccess {String} data.colorHex Color hex code
  * @apiSuccess {Date} data.dateCreated Creation timestamp
  * @apiSuccess {Date} data.dateModified Last modification timestamp
  *
@@ -32,12 +34,11 @@ import {
   successResponse,
 } from '@/middleware/crud';
 import { noteList, noteCreate, noteGet, noteUpdate, noteDelete } from '@/services/note';
-import { zString, zNullableString } from '@/utils/zodValidation';
 
 const securable = 'NOTE';
 
 const listQuerySchema = z.object({
-  filterCor: z.string().max(50).optional(),
+  filterColorIds: z.string().max(100).optional(),
   orderBy: z.enum(['dateCreated', 'dateModified', 'titulo']).optional(),
   direction: z.enum(['asc', 'desc']).optional(),
 });
@@ -77,7 +78,7 @@ export async function listHandler(req: Request, res: Response, next: NextFunctio
  *
  * @apiParam {String} titulo Note title (3-100 characters)
  * @apiParam {String} conteudo Note content (1-5000 characters)
- * @apiParam {String} [cor] Note color (default: 'branco')
+ * @apiParam {Number} [idColor] Note color ID (default: 1)
  *
  * @apiSuccess {Number} idNote Created note identifier
  *
@@ -88,7 +89,7 @@ export async function listHandler(req: Request, res: Response, next: NextFunctio
 const createBodySchema = z.object({
   titulo: z.string().min(3).max(100),
   conteudo: z.string().min(1).max(5000),
-  cor: z.string().max(50).optional(),
+  idColor: z.coerce.number().int().positive().optional(),
 });
 
 export async function createHandler(
@@ -133,7 +134,9 @@ export async function createHandler(
  * @apiSuccess {Number} idNote Note identifier
  * @apiSuccess {String} titulo Note title
  * @apiSuccess {String} conteudo Note content
- * @apiSuccess {String} cor Note color
+ * @apiSuccess {Number} idColor Color identifier
+ * @apiSuccess {String} colorName Color name
+ * @apiSuccess {String} colorHex Color hex code
  * @apiSuccess {Date} dateCreated Creation timestamp
  * @apiSuccess {Date} dateModified Last modification timestamp
  *
@@ -182,7 +185,7 @@ export async function getHandler(req: Request, res: Response, next: NextFunction
  * @apiParam {Number} id Note identifier
  * @apiParam {String} titulo Updated note title (3-100 characters)
  * @apiParam {String} conteudo Updated note content (1-5000 characters)
- * @apiParam {String} cor Updated note color
+ * @apiParam {Number} idColor Updated note color ID
  *
  * @apiSuccess {Number} idNote Updated note identifier
  *
@@ -195,7 +198,7 @@ const updateParamsSchema = z.object({
   id: z.coerce.number().int().positive(),
   titulo: z.string().min(3).max(100),
   conteudo: z.string().min(1).max(5000),
-  cor: z.string().max(50),
+  idColor: z.coerce.number().int().positive(),
 });
 
 export async function updateHandler(
@@ -217,7 +220,7 @@ export async function updateHandler(
       idNote: validated.params.id,
       titulo: validated.params.titulo,
       conteudo: validated.params.conteudo,
-      cor: validated.params.cor,
+      idColor: validated.params.idColor,
     });
 
     res.json(successResponse(data));
