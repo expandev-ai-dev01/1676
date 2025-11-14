@@ -1,9 +1,13 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
-import { RootLayout } from '@/pages/layouts/RootLayout';
+import RootLayout from '@/pages/layouts/RootLayout';
 import { LoadingSpinner } from '@/core/components/LoadingSpinner';
 
 const HomePage = lazy(() => import('@/pages/Home'));
+const NotesPage = lazy(() => import('@/pages/Notes'));
+const NoteDetailPage = lazy(() => import('@/pages/NoteDetail'));
+const NoteCreatePage = lazy(() => import('@/pages/NoteCreate'));
+const NoteEditPage = lazy(() => import('@/pages/NoteEdit'));
 const NotFoundPage = lazy(() => import('@/pages/NotFound'));
 
 /**
@@ -24,6 +28,43 @@ export const router = createBrowserRouter([
             <HomePage />
           </Suspense>
         ),
+      },
+      {
+        path: 'notes',
+        children: [
+          {
+            index: true,
+            element: (
+              <Suspense fallback={<LoadingSpinner />}>
+                <NotesPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'new',
+            element: (
+              <Suspense fallback={<LoadingSpinner />}>
+                <NoteCreatePage />
+              </Suspense>
+            ),
+          },
+          {
+            path: ':id',
+            element: (
+              <Suspense fallback={<LoadingSpinner />}>
+                <NoteDetailPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: ':id/edit',
+            element: (
+              <Suspense fallback={<LoadingSpinner />}>
+                <NoteEditPage />
+              </Suspense>
+            ),
+          },
+        ],
       },
       {
         path: '*',
